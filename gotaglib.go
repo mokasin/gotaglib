@@ -23,27 +23,33 @@ import "C"
 import "unsafe"
 import "fmt"
 
-type TaggedFile struct {
+type Properties struct {
+	Bitrate    int
+	Length     int
+	Samplerate int
+	Channels   int
+}
+
+type Tags struct {
 	Filename string
 	Title    string
 	Artist   string
 	Album    string
 	Comment  string
 	Genre    string
-	Year     uint
-	Track    uint
-	Bitrate  uint
-	Length   uint
+	Year     int
+	Track    int
+	Properties
 }
 
-type ErrUnreadableTag struct {}
+type ErrUnreadableTag struct{}
 
 func (e ErrUnreadableTag) Error() string {
 	return fmt.Sprintf("Can not read tags of file.")
 }
 
-// Constructor of TaggedFile
-func NewTaggedFile(filename string) (*TaggedFile, error) {
+// Constructor of Tags
+func Read(filename string) (*Tags, error) {
 
 	//convert filename to a C-string and make sure to free it afterwards
 	cfilename := C.CString(filename)
@@ -60,17 +66,30 @@ func NewTaggedFile(filename string) (*TaggedFile, error) {
 	}
 
 	taglib_tag := C.taglib_file_tag(taglib_file)
+	if taglib_tag == nil {
+		return nil, fmt.Errorf("Can't access 'taglib_file' in TagLib library.")
+	}
 	taglib_audioprop := C.taglib_file_audioproperties(taglib_file)
+	if taglib_tag == nil {
+		return nil, fmt.Errorf("Can't access 'taglib_audioprob' in TagLib library.")
+	}
 
-	return &TaggedFile{Filename: filename,
-		Title:   C.GoString(C.taglib_tag_title(taglib_tag)),
-		Artist:  C.GoString(C.taglib_tag_artist(taglib_tag)),
-		Album:   C.GoString(C.taglib_tag_album(taglib_tag)),
-		Comment: C.GoString(C.taglib_tag_comment(taglib_tag)),
-		Genre:   C.GoString(C.taglib_tag_genre(taglib_tag)),
-		Year:    uint(C.taglib_tag_year(taglib_tag)),
-		Track:   uint(C.taglib_tag_track(taglib_tag)),
-		Bitrate: uint(C.taglib_audioproperties_bitrate(taglib_audioprop)),
-		Length:  uint(C.taglib_audioproperties_length(taglib_audioprop)),
+	p := Properties{
+		Bitrate:    int(C.taglib_audioproperties_bitrate(taglib_audioprop)),
+		Length:     int(C.taglib_audioproperties_length(taglib_audioprop)),
+		Samplerate: int(C.taglib_audioproperties_samplerate(taglib_audioprop)),
+		Channels:   int(C.taglib_audioproperties_channels(taglib_audioprop)),
+	}
+
+	return &Tags{
+		Filename:   filename,
+		Title:      C.GoString(C.taglib_tag_title(taglib_tag)),
+		Artist:     C.GoString(C.taglib_tag_artist(taglib_tag)),
+		Album:      C.GoString(C.taglib_tag_album(taglib_tag)),
+		Comment:    C.GoString(C.taglib_tag_comment(taglib_tag)),
+		Genre:      C.GoString(C.taglib_tag_genre(taglib_tag)),
+		Year:       int(C.taglib_tag_year(taglib_tag)),
+		Track:      int(C.taglib_tag_track(taglib_tag)),
+		Properties: p,
 	}, nil
 }
